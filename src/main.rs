@@ -1,3 +1,4 @@
+use argon2::Version;
 use ed25519_compact::{KeyPair, Noise, Signature};
 use ed25519_compact::{PublicKey, SecretKey};
 use ed25519_compact::x25519::KeyPair as xK;
@@ -5,7 +6,8 @@ use pqc_kyber::{keypair, Keypair, KyberError};
 use pqc_kyber::PublicKey as pqcPublicKey;
 
 fn main() {
-    println!("{:?}", PreKeyBundle::new().unwrap())
+    let pkb = PreKeyBundle::new().unwrap();
+    println!("{:?}", pkb.0.ik)
 }
 
 #[derive(Debug)]
@@ -52,4 +54,12 @@ impl PreKeyBundle {
             pqkem: bob_pqkem,
         }))
     }
+}
+
+#[derive(Debug)]
+struct InitialMessage<'a> {
+    ik: PublicKey,
+    ed: ed25519_compact::x25519::PublicKey,
+    ct: pqc_kyber::Encapsulated,
+    ect: argon2::Argon2<'a>,
 }
