@@ -1,3 +1,4 @@
+use std::io::ErrorKind::InvalidInput;
 use sha2::Sha256;
 use hkdf::Hkdf;
 use ed25519_compact::{KeyPair, Noise, Signature};
@@ -5,6 +6,8 @@ use ed25519_compact::{PublicKey, SecretKey};
 use ed25519_compact::x25519::KeyPair as xK;
 use pqc_kyber::{keypair, Keypair, KyberError, encapsulate};
 use pqc_kyber::PublicKey as pqcPublicKey;
+use libaes::Cipher;
+use rand::Rng;
 
 fn main() {
     let pkb = PreKeyBundle::new().unwrap();
@@ -58,15 +61,15 @@ impl PreKeyBundle {
 }
 
 #[derive(Debug)]
-struct InitialMessage<'a> {
+struct InitialMessage {
     ik: PublicKey,
     ed: ed25519_compact::x25519::PublicKey,
-    ct: pqc_kyber::Encapsulated,
-    ect: argon2::Argon2<'a>,
+    ct: [u8; 1568],
+    ect: Vec<u8>,
 }
 
-impl<'a> InitialMessage<'a> {
-    pub fn alice_handle_pre_key(pkb: PreKeyBundle) {
+impl InitialMessage {
+    pub fn alice_handle_pre_key(pkb: PreKeyBundle) -> InitialMessage{
         if let Err(e) = pkb.ik.verify(pkb.spk.as_ref(), &pkb.spk_sig) {
             panic!("Error: {}", e)
         }
@@ -78,14 +81,30 @@ impl<'a> InitialMessage<'a> {
         }
         let mut rng = rand::thread_rng();
         let (ct, ss) = encapsulate(&pkb.pqkem, &mut rng).unwrap();
+        let ct: [u8; 1568] = ct;
         let bob_ik_x25519 = ed25519_compact::x25519::PublicKey::from_ed25519(&pkb.ik).unwrap();
-        let alice_ik = xK::generate();
+        let alice_ed_ik = KeyPair::generate();
+        let alice_ik = ed25519_compact::x25519::SecretKey::from_ed25519(&alice_ed_ik.sk).unwrap();
         let alice_ek = xK::generate();
-        let dh1 = pkb.spk.dh(&alice_ik.sk).unwrap();
+        let dh1 = pkb.spk.dh(&alice_ik).unwrap();
         let dh2 = bob_ik_x25519.dh(&alice_ek.sk).unwrap();
         let dh3 = pkb.spk.dh(&alice_ek.sk).unwrap();
         let dh4 = pkb.opk.dh(&alice_ek.sk).unwrap();
         let sum = [dh1.as_ref(), dh2.as_ref(), dh3.as_ref(), dh4.as_ref(), ss.as_slice()].concat();
-        let hk = Hkdf::<Sha256>::new(None, sum.as_slice());
+        let sk = Hkdf::<Sha256>::new(None, sum.as_slice());
+        let data = "alice".as_bytes();
+        let mut okm: [u8; 42] = [0; 42];
+        sk.expand(data, &mut okm).unwrap();
+        let ad = [pkb.ik.as_slice(),alice_ed_ik.pk.as_slice()].concat();
+        let key: [u8; 32] = rng.gen::<[u8; 32]>();
+        println!("{:?}", &key);
+        let cipher = Cipher::new_256(&key);
+        let encrypted = cipher.cbc_encrypt([ad.as_slice(), sum.as_slice()].concat().as_slice(), &okm);
+        InitialMessage{
+            ik: alice_ed_ik.pk,
+            ed: alice_ek.pk,
+            ct,
+            ect: encrypted,
+        }
     }
 }
