@@ -1,4 +1,3 @@
-use std::io::ErrorKind::InvalidInput;
 use sha2::Sha256;
 use hkdf::Hkdf;
 use ed25519_compact::{KeyPair, Noise, Signature};
@@ -11,7 +10,8 @@ use rand::Rng;
 
 fn main() {
     let pkb = PreKeyBundle::new().unwrap();
-    InitialMessage::alice_handle_pre_key(pkb.0);
+    let im = InitialMessage::alice_handle_pre_key(&pkb.0);
+    bob_handle_initial_message(&im, &pkb.1, &pkb.0)
 }
 
 #[derive(Debug)]
@@ -69,7 +69,7 @@ struct InitialMessage {
 }
 
 impl InitialMessage {
-    pub fn alice_handle_pre_key(pkb: PreKeyBundle) -> InitialMessage{
+    pub fn alice_handle_pre_key(pkb: &PreKeyBundle) -> InitialMessage{
         if let Err(e) = pkb.ik.verify(pkb.spk.as_ref(), &pkb.spk_sig) {
             panic!("Error: {}", e)
         }
@@ -107,4 +107,9 @@ impl InitialMessage {
             ect: encrypted,
         }
     }
+}
+
+fn bob_handle_initial_message(im: &InitialMessage, skb: &PrivateKeyBundle, pkb: &PreKeyBundle) {
+    let alice_ik_x25519 = ed25519_compact::x25519::PublicKey::from_ed25519(&im.ik).unwrap();
+    // need to convert private key bundle to have the ed25519 keys and not x25519 keys
 }
