@@ -1,4 +1,4 @@
-# A basic pqxdh implementation that should NOT be used in any environment
+# A basic pqxdh implementation that should NOT be used in production
 
 * Designed for learning purposes
 * Not 100% to spec
