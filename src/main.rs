@@ -1,6 +1,5 @@
 use aes_gcm::aead::{Aead, Nonce};
 use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit};
-use ed25519_compact::x25519::KeyPair as xK;
 use ed25519_compact::{KeyPair, Noise, Signature};
 use ed25519_compact::{PublicKey, SecretKey};
 use hkdf::Hkdf;
@@ -8,13 +7,16 @@ use pqc_kyber::PublicKey as pqcPublicKey;
 use pqc_kyber::{decapsulate, encapsulate, keypair, Keypair};
 use sha2::Sha256;
 
+// pqxdh spec: https://signal.org/docs/specifications/pqxdh/
+
+const AES_KEY_BYTES: usize = 32;
+
 fn main() {
     let bob_key_bundle = PreKeyBundle::new();
     let initial_message = InitialMessage::alice_handle_pre_key(&bob_key_bundle.0);
     bob_handle_initial_message(&initial_message, &bob_key_bundle.1)
 }
 
-const AES_KEY_BYTES: usize = 32;
 
 #[derive(Debug)]
 struct PreKeyBundle {
@@ -106,7 +108,7 @@ struct InitialMessage {
 
 impl InitialMessage {
     pub fn alice_handle_pre_key(pkb: &PreKeyBundle) -> InitialMessage {
-        // verifys keys
+        // verify keys
         if let Err(e) = pkb.ik.verify(pkb.spk.as_ref(), &pkb.spk_sig) {
             panic!("Error: {}", e)
         }
@@ -118,7 +120,7 @@ impl InitialMessage {
         }
         // source of entropy
         let mut rng = rand::thread_rng();
-        // cyphertext and shared secret bytes
+        // ciphertext and shared secret bytes
         let (ct, ss): (
             [u8; pqc_kyber::KYBER_CIPHERTEXTBYTES],
             [u8; pqc_kyber::KYBER_SSBYTES],
@@ -130,14 +132,14 @@ impl InitialMessage {
         // makes a secret x25519 key from alice's ed25519 secret key
         let alice_ik = ed25519_compact::x25519::SecretKey::from_ed25519(&alice_ed_ik.sk).unwrap();
         // makes x25519 keypair representing alice's ephemeral keys
-        let alice_ek = xK::generate();
-        // does the dh1 as defined in pqxdh spec
+        let alice_ek = ed25519_compact::x25519::KeyPair::generate();
+        // doing the diffie hellman 1 (dh1) as defined in pqxdh spec
         let dh1 = pkb.spk.dh(&alice_ik).unwrap();
-        // does the dh2 as defined in pqxdh spec
+        // doing the diffie hellman 2 (dh2) as defined in pqxdh spec
         let dh2 = bob_ik_x25519.dh(&alice_ek.sk).unwrap();
-        // does the dh3 as defined in pqxdh spec
+        // doing the diffie hellman 3 (dh3) as defined in pqxdh spec
         let dh3 = pkb.spk.dh(&alice_ek.sk).unwrap();
-        // does the optional dh4 as defined in pqxdh spec
+        // doing the diffie hellman 4 (dh4) as defined in pqxdh spec
         let dh4 = pkb.opk.dh(&alice_ek.sk).unwrap();
         // creates the sum of the dh operations and the shared secret
         let sum = [
