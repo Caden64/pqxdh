@@ -8,10 +8,10 @@
 - [x] Bob's curve identity key IK
 - [x] Bob's signed curve prekey key spk (Does not need an identifier because there is only one key)
 - [x] Bob's signature on the curve prekey SIG(IKSPK)
-- [ ] Bob's signed last-resort pqkem prekey (Does not need other pqkem keys because there is only one key)
-- [ ] Bob's Signature on the pqkem prekey
-- [ ] Bob's Onetime curve prekey
-- [ ] Save Prekey Bundle
+- [x] Bob's signed last-resort pqkem prekey (Does not need other pqkem keys because there is only one key)
+- [x] Bob's Signature on the pqkem prekey
+- [x] Bob's Onetime curve prekey
+- [ ] Use Prekey Bundle
 
 ## Receive PreKey Bundle (Alice)
 
@@ -24,7 +24,7 @@
 - [ ] Generate DH4
 - [ ] Calculate SK
 - [ ] Calculate AD (Adding Bobs PQPK for additional security)
-- [ ] Save Initial Message
+- [ ] Use Initial Message
 
 ## Receive the initial message (Bob)
 
